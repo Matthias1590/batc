@@ -30,6 +30,7 @@ class TokenType(StrEnum):
     SYMB_RPAREN = r"\)"
     SYMB_LBRACE = r"{"
     SYMB_RBRACE = r"}"
+    SYMB_COMMA = r","
 
     # literals
     LITR_INT = r"\d+"
@@ -55,16 +56,17 @@ __lexer = __lg.build()
 
 def __remove_consecutive_newlines(tokens: list[Token]) -> list[Token]:
     new_tokens = []
-    last_token = None
 
-    for token in tokens:
-        if last_token and last_token.name == TokenType.OTHR_NEWLINE._name_ and token.name == TokenType.OTHR_NEWLINE._name_:
+    for i, token in enumerate(tokens):
+        if i + 1 >= len(tokens):
+            new_tokens.append(token)
             continue
 
-        new_tokens.append(last_token)
-        last_token = token
-    
-    new_tokens.append(last_token)
+        if token.name == TokenType.OTHR_NEWLINE._name_ and tokens[i + 1].name == TokenType.OTHR_NEWLINE._name_:
+            continue
+
+        new_tokens.append(token)
+
     return new_tokens
 
 def __remove_comments(tokens: list[Token]) -> list[Token]:
@@ -73,6 +75,10 @@ def __remove_comments(tokens: list[Token]) -> list[Token]:
             if token.name != TokenType.OTHR_COMMENT._name_]
 
 def lex(source: str) -> list[Token]:
+    source = source.strip()
+    if not source.endswith("\n"):
+        source += "\n"
+
     tokens = list(__lexer.lex(source))
 
     tokens = __remove_comments(tokens)

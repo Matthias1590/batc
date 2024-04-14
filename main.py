@@ -3,7 +3,7 @@
 from lexer import lex
 from parser import parse
 
-with open("main_01.bat", "r") as f:
+with open("main.bat", "r") as f:
     source = f.read()
 
 tokens = lex(source)
