@@ -15,5 +15,5 @@ ast.declare()
 ast.check()
 asm = ast.compile()
 
-with open("main.asm", "w") as f:
+with open("out/main.asm", "w") as f:
     f.write(asm)
