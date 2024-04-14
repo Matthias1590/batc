@@ -1,16 +1,14 @@
-var str: *char = "hello\n"
+var age: i8 = 20
 
 func main() -> void {
-    print_str(str)
+    print_i8(age)
     print_i8(123)
+    write_port(2, 123)
 }
 
-func print_str(str: *char) -> void {
-    if *str == '\0' {
-        # ...
-    } else if *str == '\n' {
-        # ...
-    } else {
-        # ...
-    }
+func add(a: i8, b: i8) -> i8 {
+}
+
+func print_i8(value: i8) -> void {
+    # ...
 }
