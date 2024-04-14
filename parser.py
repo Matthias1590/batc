@@ -14,6 +14,7 @@ __pg = ParserGenerator([t._name_ for t in TokenType], [
 BASE_POINTER_REG = 7
 STACK_POINTER_REG = 6
 
+# TODO: Make these configurable
 HEAP_END = 128
 STATIC_MEMORY_SIZE = 64
 STACK_END = HEAP_END + STATIC_MEMORY_SIZE
