@@ -78,10 +78,10 @@ class RegisterOffsetDestination(MemoryDestination):
         self.offset = offset
 
     def load_from_register(self, register: int) -> str:
-        return f"mst {repr_register(self.register)}, {repr_offset(self.offset)}, {repr_register(register)}"
+        return f"mst {repr_register(self.register)} {repr_offset(self.offset)} {repr_register(register)}"
 
     def __repr__(self) -> str:
-        return f"{repr_register(self.register)}, {repr_offset(self.offset)}"
+        return f"{repr_register(self.register)} {repr_offset(self.offset)}"
 
 
 class Scope:
@@ -108,7 +108,6 @@ class Scope:
             raise ValueError("Out of registers")
 
         return RegisterDestination(self.regs.pop(), self)
-
 
     def declare_var(self, name: str, type: Type) -> None:
         if name in self.vars:
@@ -546,11 +545,11 @@ class Ident(Expression):
             var_addr = self.scope.get_var_address(self.name)
             if isinstance(var_addr, RegisterOffsetDestination):
                 with self.scope.alloc_register() as reg:
-                    return f"mld {repr_register(reg)}, {var_addr}, {repr_offset(0)}\n" + destination.load_from_register(reg)
+                    return f"mld {repr_register(reg)} {var_addr} {repr_offset(0)}\n" + destination.load_from_register(reg)
             elif isinstance(var_addr, MemoryDestination):
                 with self.scope.alloc_register() as reg_addr:
-                    return f"ldi {reg_addr}, {repr_immediate(var_addr.address)}\n" \
-                           f"mld {repr_register(reg_addr)}, {repr_register(reg_addr)}, {repr_offset(0)}\n" \
+                    return f"ldi {reg_addr} {repr_immediate(var_addr.address)}\n" \
+                           f"mld {repr_register(reg_addr)} {repr_register(reg_addr)} {repr_offset(0)}\n" \
                            + destination.load_from_register(reg_addr)
             else:
                 raise NotImplementedError(var_addr)
@@ -594,7 +593,7 @@ class Call(Expression):
 
             with self.scope.alloc_register() as reg_port:
                 lines.append(self.args[0].compile_into(reg_port))
-                lines.append(f"pst {reg_port}, {repr_immediate(self.args[1].value)}")
+                lines.append(f"pst {reg_port} {repr_immediate(self.args[1].value)}")
 
             # TODO: Move the return value somewhere
 
@@ -607,7 +606,7 @@ class Call(Expression):
 
             with self.scope.alloc_register() as reg_port:
                 lines.append(self.args[0].compile_into(reg_port))
-                lines.append(f"pld {reg_port}, {repr_immediate(self.args[1].value)}")
+                lines.append(f"pld {reg_port} {repr_immediate(self.args[1].value)}")
 
             # TODO: Move the return value somewhere
 
@@ -616,17 +615,19 @@ class Call(Expression):
         lines = []
 
         with self.scope.alloc_register() as old_base:
-            lines.append(f"mov {repr_register(old_base)}, {repr_register(BASE_POINTER_REG)}")
-            lines.append(f"mov {repr_register(BASE_POINTER_REG)}, {repr_register(STACK_POINTER_REG)}")
-            lines.append(f"adi {repr_register(STACK_POINTER_REG)}, {repr_immediate(-(len(self.args) + 1))}")
-            lines.append(f"cmp {repr_register(STACK_POINTER_REG)}, {repr_immediate(STACK_END)}")
-            lines.append(f"jmp less {repr_batc_label('stack_overflow')}")
-            lines.append(f"mst {repr_register(STACK_POINTER_REG)}, {repr_offset(len(self.args))}, {repr_register(old_base)}")
+            lines.append(f"mov {repr_register(old_base)} {repr_register(BASE_POINTER_REG)}")
+            lines.append(f"mov {repr_register(BASE_POINTER_REG)} {repr_register(STACK_POINTER_REG)}")
+            lines.append(f"adi {repr_register(STACK_POINTER_REG)} {repr_immediate(-(len(self.args) + 1))}")
+            with self.scope.alloc_register() as reg_temp:
+                lines.append(f"ldi {reg_temp} {repr_immediate(STACK_END)}")
+                lines.append(f"cmp {repr_register(STACK_POINTER_REG)} {reg_temp}")
+            lines.append(f"brh lo {repr_batc_label('stack_overflow')}")
+            lines.append(f"mst {repr_register(STACK_POINTER_REG)} {repr_offset(len(self.args))} {repr_register(old_base)}")
             for i, arg in enumerate(self.args):
                 lines.append(arg.compile_into(RegisterOffsetDestination(STACK_POINTER_REG, i)))
             lines.append(f"cal {repr_user_label(self.name)}")
-            lines.append(f"mld {repr_register(BASE_POINTER_REG)}, {repr_register(STACK_POINTER_REG)}, {repr_offset(len(self.args))}")
-            lines.append(f"adi {repr_register(STACK_POINTER_REG)}, {repr_immediate(len(self.args) + 1)}")
+            lines.append(f"mld {repr_register(BASE_POINTER_REG)} {repr_register(STACK_POINTER_REG)} {repr_offset(len(self.args))}")
+            lines.append(f"adi {repr_register(STACK_POINTER_REG)} {repr_immediate(len(self.args) + 1)}")
 
         # TODO: Move the return value somewhere
 
@@ -665,15 +666,15 @@ class IntLiteral(Literal):
     def compile_into(self, destination: Destination) -> str:
         if isinstance(destination, RegisterOffsetDestination):
             with self.scope.alloc_register() as reg:
-                return f"ldi {reg}, {repr_immediate(self.value)}\n" + destination.load_from_register(reg)
+                return f"ldi {reg} {repr_immediate(self.value)}\n" + destination.load_from_register(reg)
         elif isinstance(destination, MemoryDestination):
             with self.scope.alloc_register() as reg_value:
                 with self.scope.alloc_register() as reg_addr:
-                    return f"ldi {reg_value}, {repr_immediate(self.value)}\n" \
-                           f"ldi {reg_addr}, {repr_immediate(destination.address)}\n" \
-                           f"mst {reg_addr}, {repr_offset(0)}, {repr_register(reg_value)}"
+                    return f"ldi {reg_value} {repr_immediate(self.value)}\n" \
+                           f"ldi {reg_addr} {repr_immediate(destination.address)}\n" \
+                           f"mst {reg_addr} {repr_offset(0)} {repr_register(reg_value)}"
         elif isinstance(destination, RegisterDestination):
-            return f"ldi {repr_register(destination.register)}, {repr_immediate(self.value)}"
+            return f"ldi {repr_register(destination.register)} {repr_immediate(self.value)}"
         else:
             raise NotImplementedError(destination)
 
